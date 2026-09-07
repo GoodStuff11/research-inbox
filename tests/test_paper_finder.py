@@ -1,6 +1,6 @@
 from paper_finder import (
     parse_arxiv_feed, fuzzy_title_match, verify_candidate, find_paper_data,
-    extract_arxiv_id,
+    extract_arxiv_id, fetch_arxiv_by_id,
 )
 
 ATTENTION_FEED = """<?xml version="1.0" encoding="UTF-8"?>
@@ -110,6 +110,21 @@ def test_verify_candidate_rejects_id_match_with_mismatched_title():
     http_get = _fake_http_get(id_response=ATTENTION_FEED, search_response=EMPTY_FEED)
 
     assert verify_candidate(candidate, http_get) is None
+
+
+def test_fetch_arxiv_by_id_returns_entry_when_found():
+    http_get = _fake_http_get(id_response=ATTENTION_FEED)
+
+    result = fetch_arxiv_by_id("1706.03762", http_get)
+
+    assert result["title"] == "Attention Is All You Need"
+    assert result["arxiv_id"] == "1706.03762"
+
+
+def test_fetch_arxiv_by_id_returns_none_when_not_found():
+    http_get = _fake_http_get(id_response=EMPTY_FEED)
+
+    assert fetch_arxiv_by_id("9999.99999", http_get) is None
 
 
 GOOD_CANDIDATE_JSON = """{

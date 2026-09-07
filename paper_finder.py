@@ -89,15 +89,20 @@ def parse_arxiv_feed(xml_text):
     return entries
 
 
+def fetch_arxiv_by_id(arxiv_id, http_get):
+    xml_text = http_get(f"{ARXIV_API}?id_list={arxiv_id}")
+    entries = parse_arxiv_feed(xml_text)
+    return entries[0] if entries else None
+
+
 def verify_candidate(candidate, http_get):
     title = candidate.get("title") or ""
     arxiv_id = candidate.get("arxiv_id")
 
     if arxiv_id:
-        xml_text = http_get(f"{ARXIV_API}?id_list={arxiv_id}")
-        entries = parse_arxiv_feed(xml_text)
-        if entries and fuzzy_title_match(entries[0]["title"], title):
-            return entries[0]
+        entry = fetch_arxiv_by_id(arxiv_id, http_get)
+        if entry and fuzzy_title_match(entry["title"], title):
+            return entry
 
     if title:
         query = urllib.parse.quote(f'ti:"{title}"')
