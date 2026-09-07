@@ -1,0 +1,78 @@
+import pytest
+
+import app as app_module
+
+ATTENTION_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/1706.03762v5</id>
+    <updated>2017-12-06T00:00:00Z</updated>
+    <published>2017-06-12T17:57:34Z</published>
+    <title>Attention Is All You Need</title>
+    <summary>...</summary>
+    <author><name>Ashish Vaswani</name></author>
+    <author><name>Noam Shazeer</name></author>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>"""
+
+EMPTY_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+</feed>"""
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(app_module, "DB_PATH", str(db_path))
+    app_module.init_db()
+    app_module.app.config["TESTING"] = True
+    with app_module.app.test_client() as c:
+        yield c
+
+
+def test_add_reading_list_entry_with_valid_link_returns_verified_metadata(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+
+    resp = client.post("/api/reading-list", json={
+        "arxiv_link": "https://arxiv.org/abs/1706.03762",
+        "folder": "ML Theory",
+        "reason": "want to understand attention",
+    })
+
+    assert resp.status_code == 201
+
+    listed = client.get("/api/reading-list").get_json()
+    assert len(listed) == 1
+    assert listed[0]["title"] == "Attention Is All You Need"
+    assert listed[0]["arxiv_id"] == "1706.03762"
+    assert listed[0]["folder"] == "ML Theory"
+    assert listed[0]["reason"] == "want to understand attention"
+    assert listed[0]["status"] == "to_read"
+
+
+def test_add_reading_list_entry_with_unparseable_text_returns_400(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: EMPTY_FEED)
+
+    resp = client.post("/api/reading-list", json={
+        "arxiv_link": "this is not a link at all",
+        "folder": "",
+        "reason": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Couldn't find an arxiv ID in that link/text."
+    assert client.get("/api/reading-list").get_json() == []
+
+
+def test_add_reading_list_entry_with_nonexistent_arxiv_id_returns_400(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: EMPTY_FEED)
+
+    resp = client.post("/api/reading-list", json={
+        "arxiv_link": "9999.99999",
+        "folder": "",
+        "reason": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "That arxiv ID doesn't seem to exist — check the link and try again."

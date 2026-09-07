@@ -12,7 +12,7 @@ import requests
 import telebot
 from google import genai
 
-from paper_finder import find_paper_data
+from paper_finder import find_paper_data, extract_arxiv_id, fetch_arxiv_by_id
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -44,6 +44,21 @@ def init_db():
                 paper_arxiv_id TEXT,
                 paper_venue TEXT,
                 paper_why   TEXT
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS reading_list (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                arxiv_id    TEXT NOT NULL,
+                title       TEXT NOT NULL,
+                authors     TEXT,
+                venue       TEXT,
+                folder      TEXT,
+                reason      TEXT,
+                thoughts    TEXT,
+                status      TEXT NOT NULL DEFAULT 'to_read',
+                added_at    TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
             )
         """)
         db.commit()
@@ -94,6 +109,22 @@ def delete_entry(entry_id):
     with get_db() as db:
         db.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         db.commit()
+
+def add_reading_list_entry(arxiv_id, title, authors, venue, folder, reason):
+    now = datetime.utcnow().isoformat()
+    with get_db() as db:
+        cur = db.execute("""
+            INSERT INTO reading_list
+                (arxiv_id, title, authors, venue, folder, reason, status, added_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'to_read', ?, ?)
+        """, (arxiv_id, title, authors, venue, folder, reason, now, now))
+        db.commit()
+        return cur.lastrowid
+
+def get_reading_list_entries():
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM reading_list ORDER BY added_at DESC").fetchall()
+        return [dict(r) for r in rows]
 
 # ── Gemini + arxiv paper-finder ───────────────────────────────────────────────
 def _llm_call(prompt):
@@ -158,6 +189,32 @@ def api_refind(entry_id):
 def api_delete(entry_id):
     delete_entry(entry_id)
     return jsonify({"ok": True})
+
+@app.route("/api/reading-list", methods=["GET"])
+def api_reading_list_get():
+    return jsonify(get_reading_list_entries())
+
+@app.route("/api/reading-list", methods=["POST"])
+def api_reading_list_add():
+    data = request.json or {}
+    arxiv_link = (data.get("arxiv_link") or "").strip()
+    folder = (data.get("folder") or "").strip() or None
+    reason = (data.get("reason") or "").strip() or None
+
+    arxiv_id = extract_arxiv_id(arxiv_link)
+    if not arxiv_id:
+        return jsonify({"error": "Couldn't find an arxiv ID in that link/text."}), 400
+
+    entry = fetch_arxiv_by_id(arxiv_id, _http_get)
+    if not entry:
+        return jsonify({"error": "That arxiv ID doesn't seem to exist — check the link and try again."}), 400
+
+    row_id = add_reading_list_entry(
+        arxiv_id=entry["arxiv_id"], title=entry["title"],
+        authors=entry["authors"], venue=entry["venue"],
+        folder=folder, reason=reason,
+    )
+    return jsonify({"id": row_id}), 201
 
 # ── Telegram bot ──────────────────────────────────────────────────────────────
 def run_bot():
