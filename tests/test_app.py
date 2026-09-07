@@ -31,6 +31,11 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
+def test_pages_render(client):
+    assert client.get("/").status_code == 200
+    assert client.get("/reading-list").status_code == 200
+
+
 def test_add_reading_list_entry_with_valid_link_returns_verified_metadata(client, monkeypatch):
     monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
 

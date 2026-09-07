@@ -284,8 +284,10 @@ async function refind(id, e) {
 
 async function addToReadingList(id, e) {
   e.stopPropagation();
-  await fetch('/api/entries/' + id + '/add-to-reading-list', {method: 'POST'});
-  addedIds.add(id);
+  const r = await fetch('/api/entries/' + id + '/add-to-reading-list', {method: 'POST'});
+  if (r.ok) {
+    addedIds.add(id);
+  }
   render();
 }
 

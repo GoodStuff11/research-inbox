@@ -302,7 +302,7 @@ function render() {
   const read = items.filter(i => i.status === 'read');
   const notInterested = items.filter(i => i.status === 'not_interested');
 
-  const groups = {};
+  const groups = Object.create(null);
   toRead.forEach(i => {
     const key = i.folder || '';
     (groups[key] = groups[key] || []).push(i);

@@ -178,6 +178,10 @@ def find_paper_async(entry_id, thought):
 # ── Flask web app ─────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
+def _json_body():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
 @app.route("/")
 def index():
     entries = get_entries()
@@ -237,7 +241,7 @@ def api_reading_list_get():
 
 @app.route("/api/reading-list", methods=["POST"])
 def api_reading_list_add():
-    data = request.json or {}
+    data = _json_body()
     arxiv_link = (data.get("arxiv_link") or "").strip()
     folder = (data.get("folder") or "").strip() or None
     reason = (data.get("reason") or "").strip() or None
@@ -261,7 +265,7 @@ def api_reading_list_add():
 def api_reading_list_update(entry_id):
     if not get_reading_list_entry(entry_id):
         return jsonify({"error": "not found"}), 404
-    update_reading_list_entry(entry_id, request.json or {})
+    update_reading_list_entry(entry_id, _json_body())
     return jsonify({"ok": True})
 
 @app.route("/api/reading-list/<int:entry_id>", methods=["DELETE"])
