@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Inbox</title>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --border: #e5e3dd;
+    --border-strong: #ccc9c0;
+    --text: #1a1a18;
+    --text-2: #6b6a65;
+    --text-3: #9e9c97;
+    --accent: #1a6fd4;
+    --accent-bg: #eef4fd;
+    --accent-border: #b8d0f0;
+    --success: #1a7a4a;
+    --success-bg: #eaf5ef;
+    --warning: #916a00;
+    --warning-bg: #fef9ec;
+    --danger: #b83232;
+    --danger-bg: #fdf0f0;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151513;
+      --surface: #1e1e1b;
+      --border: #2e2e2a;
+      --border-strong: #3e3e3a;
+      --text: #e8e6e0;
+      --text-2: #9e9c97;
+      --text-3: #6b6a65;
+      --accent: #5b9fee;
+      --accent-bg: #1a2a3e;
+      --accent-border: #2a4a6e;
+      --success: #4aaa74;
+      --success-bg: #162a20;
+      --warning: #d4a020;
+      --warning-bg: #2a2210;
+      --danger: #e06060;
+      --danger-bg: #2a1616;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 720px; margin: 0 auto; padding: 2rem 1.25rem; }
+  header { margin-bottom: 2rem; }
+  header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  header p { font-size: 14px; color: var(--text-2); margin-top: 4px; }
+
+  /* Capture */
+  .capture {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .capture label { font-size: 13px; color: var(--text-2); display: block; margin-bottom: 6px; }
+  .capture textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    resize: vertical;
+    min-height: 64px;
+  }
+  .capture textarea:focus { outline: none; border-color: var(--accent); }
+  .capture textarea::placeholder { color: var(--text-3); }
+  .capture-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .err-msg { font-size: 13px; color: var(--danger); flex: 1; }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--bg); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.primary:hover { opacity: 0.9; }
+  button.sm { font-size: 13px; padding: 4px 10px; }
+  button.danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+
+  /* Entries */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+  .entries { display: flex; flex-direction: column; gap: 10px; }
+  .entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .entry-header {
+    padding: 0.875rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .entry-header:hover { background: var(--bg); }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .dot-new { background: var(--accent); }
+  .dot-loading { background: var(--warning); animation: pulse 1.2s ease-in-out infinite; }
+  .dot-found { background: var(--success); }
+  .dot-error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .entry-meta { flex: 1; min-width: 0; }
+  .entry-thought { font-size: 15px; color: var(--text); line-height: 1.5; }
+  .entry-sub { font-size: 12px; color: var(--text-3); margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+  }
+  .badge-new    { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-border); }
+  .badge-loading{ background: var(--warning-bg); color: var(--warning); }
+  .badge-found  { background: var(--success-bg); color: var(--success); }
+  .badge-error  { background: var(--danger-bg); color: var(--danger); }
+  .entry-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .btn-icon {
+    background: none; border: none; color: var(--text-3); padding: 4px; border-radius: var(--radius); cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center;
+  }
+  .btn-icon:hover { color: var(--danger); background: var(--danger-bg); }
+  .entry-body { border-top: 1px solid var(--border); padding: 1rem 1.25rem; }
+  .paper-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    line-height: 1.4;
+    margin-bottom: 3px;
+  }
+  .paper-title:hover { text-decoration: underline; }
+  .paper-authors { font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
+  .why-box {
+    background: var(--bg);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text-2);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .why-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 600; }
+  .loading-text { font-size: 14px; color: var(--text-3); font-style: italic; }
+  .empty { text-align: center; padding: 3rem 0; color: var(--text-3); font-size: 14px; line-height: 1.8; }
+  .chevron { transition: transform 0.15s; font-style: normal; }
+  .collapsed .chevron { transform: rotate(-90deg); }
+  .collapsed .entry-body { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Research inbox</h1>
+    <p>Your thoughts and questions, with a paper for each one.</p>
+  </header>
+
+  <div class="capture">
+    <label for="thought-input">What do you want to understand or explore?</label>
+    <textarea id="thought-input" rows="3"
+      placeholder="e.g. Someone mentioned Feshbach resonance in a talk on superconductivity — what is it exactly?"
+    ></textarea>
+    <div class="capture-row">
+      <button class="primary" onclick="addEntry()">Log it</button>
+      <span class="err-msg" id="err-msg"></span>
+    </div>
+  </div>
+
+  <div class="section-label">Your threads</div>
+  <div class="entries" id="entries-list"></div>
+  <div class="empty" id="empty-state" style="display:none">
+    Nothing logged yet.<br>Send a thought via Telegram, or type one above.
+  </div>
+</div>
+
+<script>
+let entries = [];
+let expandedIds = new Set();
+let pollTimer = null;
+
+async function loadEntries() {
+  try {
+    const r = await fetch('/api/entries');
+    entries = await r.json();
+    render();
+    scheduleNextPoll();
+  } catch(e) { console.error(e); }
+}
+
+function scheduleNextPoll() {
+  clearTimeout(pollTimer);
+  const hasLoading = entries.some(e => e.status === 'loading' || e.status === 'new');
+  pollTimer = setTimeout(loadEntries, hasLoading ? 2000 : 10000);
+}
+
+async function addEntry() {
+  const inp = document.getElementById('thought-input');
+  const err = document.getElementById('err-msg');
+  const val = inp.value.trim();
+  if (!val) { err.textContent = 'Write something first.'; return; }
+  err.textContent = '';
+  inp.disabled = true;
+  try {
+    const r = await fetch('/api/entries', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({thought: val})
+    });
+    const data = await r.json();
+    inp.value = '';
+    expandedIds.add(data.id);
+    await loadEntries();
+  } catch(e) {
+    err.textContent = 'Failed to save. Is the server running?';
+  }
+  inp.disabled = false;
+}
+
+async function deleteEntry(id, e) {
+  e.stopPropagation();
+  if (!confirm('Remove this entry?')) return;
+  await fetch('/api/entries/' + id, {method: 'DELETE'});
+  loadEntries();
+}
+
+async function refind(id, e) {
+  e.stopPropagation();
+  await fetch('/api/entries/' + id + '/refind', {method: 'POST'});
+  loadEntries();
+}
+
+function toggle(id) {
+  if (expandedIds.has(id)) expandedIds.delete(id);
+  else expandedIds.add(id);
+  render();
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso + 'Z');
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+}
+
+function render() {
+  const list = document.getElementById('entries-list');
+  const empty = document.getElementById('empty-state');
+  empty.style.display = entries.length === 0 ? 'block' : 'none';
+  list.innerHTML = '';
+
+  entries.forEach(entry => {
+    const expanded = expandedIds.has(entry.id);
+    const div = document.createElement('div');
+    div.className = 'entry' + (expanded ? '' : ' collapsed');
+
+    const dotClass = {new:'dot-new', loading:'dot-loading', found:'dot-found', error:'dot-error'}[entry.status] || 'dot-new';
+    const badgeClass = {new:'badge-new', loading:'badge-loading', found:'badge-found', error:'badge-error'}[entry.status] || 'badge-new';
+    const badgeText = {new:'new', loading:'finding paper…', found:'paper ready', error:'error'}[entry.status] || entry.status;
+
+    let bodyHTML = '';
+    if (entry.status === 'loading' || entry.status === 'new') {
+      bodyHTML = '<div class="entry-body"><span class="loading-text">Finding the best paper for this…</span></div>';
+    } else if (entry.status === 'found' && entry.paper_title) {
+      const url = entry.paper_arxiv_id
+        ? `https://arxiv.org/abs/${entry.paper_arxiv_id}`
+        : `https://scholar.google.com/scholar?q=${encodeURIComponent(entry.paper_title)}`;
+      bodyHTML = `<div class="entry-body">
+        <a class="paper-title" href="${url}" target="_blank" rel="noopener">${esc(entry.paper_title)}</a>
+        <div class="paper-authors">${esc(entry.paper_authors || '')}${entry.paper_venue ? ' · ' + esc(entry.paper_venue) : ''}</div>
+        <div class="why-box"><div class="why-label">Why this paper</div>${esc(entry.paper_why || '')}</div>
+        <button class="sm" onclick="refind(${entry.id}, event)">↺ Find another</button>
+      </div>`;
+    } else if (entry.status === 'error') {
+      bodyHTML = `<div class="entry-body">
+        <span class="loading-text" style="color:var(--danger)">Couldn't find a paper. </span>
+        <button class="sm" onclick="refind(${entry.id}, event)">Retry</button>
+      </div>`;
+    }
+
+    div.innerHTML = `
+      <div class="entry-header" onclick="toggle(${entry.id})">
+        <span class="dot ${dotClass}"></span>
+        <div class="entry-meta">
+          <div class="entry-thought">${esc(entry.thought)}</div>
+          <div class="entry-sub">
+            <span>${fmtDate(entry.created_at)}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <span class="chevron" style="font-size:14px;color:var(--text-3);margin-top:2px;">${expanded ? '▾' : '▾'}</span>
+          <button class="btn-icon danger" onclick="deleteEntry(${entry.id}, event)" title="Remove" aria-label="Remove">✕</button>
+        </div>
+      </div>
+      ${expanded ? bodyHTML : ''}
+    `;
+    list.appendChild(div);
+  });
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Keyboard shortcut: Cmd/Ctrl+Enter to submit
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    const inp = document.getElementById('thought-input');
+    if (document.activeElement === inp) addEntry();
+  }
+});
+
+loadEntries();
+</script>
+</body>
+</html>
