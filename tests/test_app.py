@@ -95,6 +95,18 @@ def test_patch_status_updates_reading_list_entry(client, monkeypatch):
     assert listed[0]["status"] == "read"
 
 
+def test_patch_folder_updates_reading_list_entry(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+    add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})
+    entry_id = add_resp.get_json()["id"]
+
+    resp = client.patch(f"/api/reading-list/{entry_id}", json={"folder": "ML Theory"})
+
+    assert resp.status_code == 200
+    listed = client.get("/api/reading-list").get_json()
+    assert listed[0]["folder"] == "ML Theory"
+
+
 def test_patch_thoughts_updates_reading_list_entry(client, monkeypatch):
     monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
     add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})

@@ -120,7 +120,15 @@
     font-weight: 600;
     color: var(--text-2);
     margin: 14px 0 8px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .folder-name .chevron { font-style: normal; transition: transform 0.15s; }
+  .folder-name .chevron.collapsed { transform: rotate(-90deg); }
+  .folder-count { color: var(--text-3); font-weight: 400; }
   .entries { display: flex; flex-direction: column; gap: 10px; }
   .entry {
     background: var(--surface);
@@ -211,6 +219,24 @@
 <script>
 let items = [];
 
+let collapsedFolders = new Set();
+try {
+  collapsedFolders = new Set(JSON.parse(localStorage.getItem('readingListCollapsedFolders') || '[]'));
+} catch (e) {}
+
+function saveCollapsedFolders() {
+  try {
+    localStorage.setItem('readingListCollapsedFolders', JSON.stringify([...collapsedFolders]));
+  } catch (e) {}
+}
+
+function toggleFolder(key) {
+  if (collapsedFolders.has(key)) collapsedFolders.delete(key);
+  else collapsedFolders.add(key);
+  saveCollapsedFolders();
+  render();
+}
+
 async function loadList() {
   try {
     const r = await fetch('/api/reading-list');
@@ -252,6 +278,15 @@ async function setStatus(id, status, e) {
   loadList();
 }
 
+async function saveFolder(id, value) {
+  await fetch('/api/reading-list/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({folder: value.trim() || null})
+  });
+  loadList();
+}
+
 async function saveThoughts(id, value) {
   await fetch('/api/reading-list/' + id, {
     method: 'PATCH',
@@ -272,6 +307,19 @@ function folderOptions() {
   return folders.map(f => `<option value="${esc(f)}">`).join('');
 }
 
+function folderSection(key, label, folderItems) {
+  const collapsed = collapsedFolders.has(key);
+  const heading = folderHeading(key, label, folderItems.length, collapsed);
+  const body = collapsed ? '' : folderItems.map(i => paperCard(i, true)).join('');
+  return heading + body;
+}
+
+function folderHeading(key, label, count, collapsed) {
+  return `<div class="folder-name" data-folder-key="${esc(key)}" onclick="toggleFolder(this.dataset.folderKey)">
+    <span class="chevron${collapsed ? ' collapsed' : ''}">▾</span> ${esc(label)} <span class="folder-count">(${count})</span>
+  </div>`;
+}
+
 function paperCard(item, showStatusButtons) {
   const url = `https://arxiv.org/abs/${item.arxiv_id}`;
   return `
@@ -280,6 +328,10 @@ function paperCard(item, showStatusButtons) {
         <a class="paper-title" href="${url}" target="_blank" rel="noopener">${esc(item.title)}</a>
         <div class="paper-authors">${esc(item.authors || '')}${item.venue ? ' · ' + esc(item.venue) : ''}</div>
         ${item.reason ? `<div class="why-box"><div class="why-label">Why</div>${esc(item.reason)}</div>` : ''}
+        <label class="thoughts-label" for="folder-${item.id}">Folder</label>
+        <input class="thoughts-box" id="folder-${item.id}" type="text" list="folder-datalist"
+          value="${esc(item.folder || '')}" placeholder="Uncategorized"
+          onblur="saveFolder(${item.id}, this.value)">
         <label class="thoughts-label" for="thoughts-${item.id}">Thoughts</label>
         <textarea class="thoughts-box" id="thoughts-${item.id}" rows="2"
           onblur="saveThoughts(${item.id}, this.value)">${esc(item.thoughts || '')}</textarea>
@@ -311,10 +363,10 @@ function render() {
 
   let toReadHTML = '';
   if (groups['']) {
-    toReadHTML += `<div class="folder-name">Uncategorized</div>` + groups[''].map(i => paperCard(i, true)).join('');
+    toReadHTML += folderSection('', 'Uncategorized', groups['']);
   }
   folderNames.forEach(f => {
-    toReadHTML += `<div class="folder-name">${esc(f)}</div>` + groups[f].map(i => paperCard(i, true)).join('');
+    toReadHTML += folderSection(f, f, groups[f]);
   });
   document.getElementById('to-read-list').innerHTML = toReadHTML || '<div class="empty">Nothing queued yet.</div>';
 
