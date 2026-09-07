@@ -207,6 +207,21 @@ def api_refind(entry_id):
         find_paper_async(entry_id, entry["thought"])
     return jsonify({"ok": True})
 
+@app.route("/api/entries/<int:entry_id>/add-to-reading-list", methods=["POST"])
+def api_add_to_reading_list(entry_id):
+    entry = get_entry(entry_id)
+    if not entry:
+        return jsonify({"error": "not found"}), 404
+    if entry["status"] != "found":
+        return jsonify({"error": "This entry doesn't have a matched paper yet."}), 400
+
+    row_id = add_reading_list_entry(
+        arxiv_id=entry["paper_arxiv_id"], title=entry["paper_title"],
+        authors=entry["paper_authors"], venue=entry["paper_venue"],
+        folder=None, reason=entry["thought"],
+    )
+    return jsonify({"id": row_id}), 201
+
 @app.route("/api/entries/<int:entry_id>", methods=["DELETE"])
 def api_delete(entry_id):
     delete_entry(entry_id)

@@ -121,3 +121,38 @@ def test_delete_removes_reading_list_entry(client, monkeypatch):
 def test_delete_unknown_id_returns_404(client):
     resp = client.delete("/api/reading-list/9999")
     assert resp.status_code == 404
+
+
+def test_add_to_reading_list_from_found_entry(client):
+    entry_id = app_module.add_entry("what is attention?")
+    app_module.update_paper(entry_id, {
+        "title": "Attention Is All You Need",
+        "authors": "Ashish Vaswani et al., 2017",
+        "arxiv_id": "1706.03762",
+        "venue": "cs.CL",
+        "why": "It answers your question.",
+    })
+
+    resp = client.post(f"/api/entries/{entry_id}/add-to-reading-list")
+
+    assert resp.status_code == 201
+    listed = client.get("/api/reading-list").get_json()
+    assert len(listed) == 1
+    assert listed[0]["arxiv_id"] == "1706.03762"
+    assert listed[0]["folder"] is None
+    assert listed[0]["reason"] == "what is attention?"
+    assert listed[0]["status"] == "to_read"
+
+
+def test_add_to_reading_list_from_entry_without_paper_returns_400(client):
+    entry_id = app_module.add_entry("some thought")
+
+    resp = client.post(f"/api/entries/{entry_id}/add-to-reading-list")
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "This entry doesn't have a matched paper yet."
+
+
+def test_add_to_reading_list_from_unknown_entry_returns_404(client):
+    resp = client.post("/api/entries/9999/add-to-reading-list")
+    assert resp.status_code == 404
