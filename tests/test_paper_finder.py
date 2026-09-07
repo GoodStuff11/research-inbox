@@ -1,4 +1,7 @@
-from paper_finder import parse_arxiv_feed, fuzzy_title_match, verify_candidate, find_paper_data
+from paper_finder import (
+    parse_arxiv_feed, fuzzy_title_match, verify_candidate, find_paper_data,
+    extract_arxiv_id,
+)
 
 ATTENTION_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
@@ -46,6 +49,26 @@ def test_fuzzy_title_match_true_for_whitespace_and_case_differences():
 
 def test_fuzzy_title_match_false_for_unrelated_titles():
     assert not fuzzy_title_match("Attention Is All You Need", "Deep Residual Learning for Image Recognition")
+
+
+def test_extract_arxiv_id_from_bare_id():
+    assert extract_arxiv_id("1706.03762") == "1706.03762"
+
+
+def test_extract_arxiv_id_from_abs_url():
+    assert extract_arxiv_id("https://arxiv.org/abs/1706.03762") == "1706.03762"
+
+
+def test_extract_arxiv_id_from_pdf_url_with_version():
+    assert extract_arxiv_id("https://arxiv.org/pdf/1706.03762v2.pdf") == "1706.03762"
+
+
+def test_extract_arxiv_id_from_url_without_scheme():
+    assert extract_arxiv_id("arxiv.org/abs/1706.03762") == "1706.03762"
+
+
+def test_extract_arxiv_id_returns_none_for_garbage_text():
+    assert extract_arxiv_id("this is not a link at all") is None
 
 
 def _fake_http_get(id_response=None, search_response=None):

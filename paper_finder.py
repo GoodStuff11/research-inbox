@@ -40,6 +40,14 @@ def fuzzy_title_match(a, b, threshold=0.85):
     return SequenceMatcher(None, norm_a, norm_b).ratio() >= threshold
 
 
+ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})(?:v\d+)?")
+
+
+def extract_arxiv_id(text):
+    match = ARXIV_ID_RE.search(text)
+    return match.group(1) if match else None
+
+
 def _format_authors(names):
     if not names:
         return ""
