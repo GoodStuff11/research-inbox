@@ -126,6 +126,28 @@ def get_reading_list_entries():
         rows = db.execute("SELECT * FROM reading_list ORDER BY added_at DESC").fetchall()
         return [dict(r) for r in rows]
 
+def get_reading_list_entry(entry_id):
+    with get_db() as db:
+        row = db.execute("SELECT * FROM reading_list WHERE id = ?", (entry_id,)).fetchone()
+        return dict(row) if row else None
+
+READING_LIST_PATCHABLE_FIELDS = {"status", "folder", "thoughts"}
+
+def update_reading_list_entry(entry_id, updates):
+    fields = {k: v for k, v in updates.items() if k in READING_LIST_PATCHABLE_FIELDS}
+    if not fields:
+        return
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    values = list(fields.values()) + [datetime.utcnow().isoformat(), entry_id]
+    with get_db() as db:
+        db.execute(f"UPDATE reading_list SET {set_clause}, updated_at = ? WHERE id = ?", values)
+        db.commit()
+
+def delete_reading_list_entry(entry_id):
+    with get_db() as db:
+        db.execute("DELETE FROM reading_list WHERE id = ?", (entry_id,))
+        db.commit()
+
 # ── Gemini + arxiv paper-finder ───────────────────────────────────────────────
 def _llm_call(prompt):
     client = genai.Client(api_key=GEMINI_KEY)
@@ -215,6 +237,20 @@ def api_reading_list_add():
         folder=folder, reason=reason,
     )
     return jsonify({"id": row_id}), 201
+
+@app.route("/api/reading-list/<int:entry_id>", methods=["PATCH"])
+def api_reading_list_update(entry_id):
+    if not get_reading_list_entry(entry_id):
+        return jsonify({"error": "not found"}), 404
+    update_reading_list_entry(entry_id, request.json or {})
+    return jsonify({"ok": True})
+
+@app.route("/api/reading-list/<int:entry_id>", methods=["DELETE"])
+def api_reading_list_delete(entry_id):
+    if not get_reading_list_entry(entry_id):
+        return jsonify({"error": "not found"}), 404
+    delete_reading_list_entry(entry_id)
+    return jsonify({"ok": True})
 
 # ── Telegram bot ──────────────────────────────────────────────────────────────
 def run_bot():

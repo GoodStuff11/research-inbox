@@ -76,3 +76,48 @@ def test_add_reading_list_entry_with_nonexistent_arxiv_id_returns_400(client, mo
 
     assert resp.status_code == 400
     assert resp.get_json()["error"] == "That arxiv ID doesn't seem to exist — check the link and try again."
+
+
+def test_patch_status_updates_reading_list_entry(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+    add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})
+    entry_id = add_resp.get_json()["id"]
+
+    resp = client.patch(f"/api/reading-list/{entry_id}", json={"status": "read"})
+
+    assert resp.status_code == 200
+    listed = client.get("/api/reading-list").get_json()
+    assert listed[0]["status"] == "read"
+
+
+def test_patch_thoughts_updates_reading_list_entry(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+    add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})
+    entry_id = add_resp.get_json()["id"]
+
+    resp = client.patch(f"/api/reading-list/{entry_id}", json={"thoughts": "great paper"})
+
+    assert resp.status_code == 200
+    listed = client.get("/api/reading-list").get_json()
+    assert listed[0]["thoughts"] == "great paper"
+
+
+def test_patch_unknown_id_returns_404(client):
+    resp = client.patch("/api/reading-list/9999", json={"status": "read"})
+    assert resp.status_code == 404
+
+
+def test_delete_removes_reading_list_entry(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+    add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})
+    entry_id = add_resp.get_json()["id"]
+
+    resp = client.delete(f"/api/reading-list/{entry_id}")
+
+    assert resp.status_code == 200
+    assert client.get("/api/reading-list").get_json() == []
+
+
+def test_delete_unknown_id_returns_404(client):
+    resp = client.delete("/api/reading-list/9999")
+    assert resp.status_code == 404
