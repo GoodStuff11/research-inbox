@@ -181,7 +181,11 @@ app = Flask(__name__)
 @app.route("/")
 def index():
     entries = get_entries()
-    return render_template("index.html", entries=entries)
+    return render_template("index.html", entries=entries, active_page="inbox")
+
+@app.route("/reading-list")
+def reading_list_page():
+    return render_template("reading_list.html", active_page="reading-list")
 
 @app.route("/api/entries", methods=["GET"])
 def api_entries():
