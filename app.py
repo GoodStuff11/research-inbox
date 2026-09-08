@@ -158,7 +158,7 @@ def _http_get(url, max_attempts=2, backoff_seconds=1):
     last_exc = None
     for attempt in range(max_attempts):
         try:
-            return requests.get(url, timeout=15).text
+            return requests.get(url, timeout=30).text
         except requests.exceptions.RequestException as e:
             last_exc = e
             if attempt < max_attempts - 1:

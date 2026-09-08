@@ -104,6 +104,23 @@ def test_http_get_retries_on_failure_then_succeeds(monkeypatch):
     assert len(calls) == 3
 
 
+def test_http_get_uses_a_generous_timeout_for_cold_arxiv_cache_misses(monkeypatch):
+    seen_timeouts = []
+
+    class FakeResponse:
+        text = "ok"
+
+    def fake_get(url, timeout):
+        seen_timeouts.append(timeout)
+        return FakeResponse()
+
+    monkeypatch.setattr(app_module.requests, "get", fake_get)
+
+    app_module._http_get("http://example.com")
+
+    assert seen_timeouts == [30]
+
+
 def test_http_get_raises_after_max_attempts(monkeypatch):
     def fake_get(url, timeout):
         raise app_module.requests.exceptions.ConnectionError("boom")
