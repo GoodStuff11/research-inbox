@@ -123,9 +123,14 @@ def find_paper_data(thought, llm_call, http_get, max_attempts=2):
     prompt = PAPER_PROMPT.format(thought=thought)
 
     for _ in range(max_attempts):
+        try:
+            raw = llm_call(prompt)
+        except Exception:
+            return {"status": "error", "paper": None}
+
         candidate = None
         try:
-            candidate = _parse_llm_json(llm_call(prompt))
+            candidate = _parse_llm_json(raw)
             verified = verify_candidate(candidate, http_get)
         except Exception:
             verified = None

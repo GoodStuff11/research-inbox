@@ -191,6 +191,22 @@ def test_find_paper_data_returns_error_after_max_attempts_all_fail():
     assert result["paper"] is None
 
 
+def test_find_paper_data_does_not_retry_when_llm_call_itself_raises():
+    call_count = []
+
+    def llm_call(prompt):
+        call_count.append(prompt)
+        raise RuntimeError("LLM API unavailable")
+
+    http_get = _fake_http_get(id_response=ATTENTION_FEED)
+
+    result = find_paper_data("what is attention?", llm_call, http_get)
+
+    assert result["status"] == "error"
+    assert result["paper"] is None
+    assert len(call_count) == 1
+
+
 def test_find_paper_data_treats_malformed_llm_json_as_a_failed_attempt():
     llm_call = _queue_llm_call(["not json at all", GOOD_CANDIDATE_JSON])
     http_get = _fake_http_get(id_response=ATTENTION_FEED)
