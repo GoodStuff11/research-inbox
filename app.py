@@ -154,8 +154,16 @@ def _llm_call(prompt):
     response = client.models.generate_content(model="gemini-flash-latest", contents=prompt)
     return response.text
 
-def _http_get(url):
-    return requests.get(url, timeout=15).text
+def _http_get(url, max_attempts=2, backoff_seconds=1):
+    last_exc = None
+    for attempt in range(max_attempts):
+        try:
+            return requests.get(url, timeout=15).text
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            if attempt < max_attempts - 1:
+                time.sleep(backoff_seconds)
+    raise last_exc
 
 def find_paper(entry_id, thought):
     set_status(entry_id, "loading")

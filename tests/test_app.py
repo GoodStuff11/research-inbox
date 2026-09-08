@@ -83,6 +83,38 @@ def test_add_reading_list_entry_with_nonexistent_arxiv_id_returns_400(client, mo
     assert resp.get_json()["error"] == "That arxiv ID doesn't seem to exist — check the link and try again."
 
 
+def test_http_get_retries_on_failure_then_succeeds(monkeypatch):
+    calls = []
+
+    class FakeResponse:
+        text = "ok"
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        if len(calls) < 3:
+            raise app_module.requests.exceptions.ConnectionError("boom")
+        return FakeResponse()
+
+    monkeypatch.setattr(app_module.requests, "get", fake_get)
+    monkeypatch.setattr(app_module.time, "sleep", lambda s: None)
+
+    result = app_module._http_get("http://example.com", max_attempts=3)
+
+    assert result == "ok"
+    assert len(calls) == 3
+
+
+def test_http_get_raises_after_max_attempts(monkeypatch):
+    def fake_get(url, timeout):
+        raise app_module.requests.exceptions.ConnectionError("boom")
+
+    monkeypatch.setattr(app_module.requests, "get", fake_get)
+    monkeypatch.setattr(app_module.time, "sleep", lambda s: None)
+
+    with pytest.raises(app_module.requests.exceptions.ConnectionError):
+        app_module._http_get("http://example.com")
+
+
 def test_add_reading_list_entry_when_arxiv_unreachable_returns_400(client, monkeypatch):
     def _raise(url):
         raise TimeoutError("read timed out")
