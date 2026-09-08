@@ -250,7 +250,11 @@ def api_reading_list_add():
     if not arxiv_id:
         return jsonify({"error": "Couldn't find an arxiv ID in that link/text."}), 400
 
-    entry = fetch_arxiv_by_id(arxiv_id, _http_get)
+    try:
+        entry = fetch_arxiv_by_id(arxiv_id, _http_get)
+    except Exception as e:
+        log.error(f"Error reaching arxiv for id {arxiv_id}: {e}")
+        return jsonify({"error": "Couldn't reach arxiv to verify that link — check your connection and try again."}), 400
     if not entry:
         return jsonify({"error": "That arxiv ID doesn't seem to exist — check the link and try again."}), 400
 

@@ -83,6 +83,36 @@ def test_add_reading_list_entry_with_nonexistent_arxiv_id_returns_400(client, mo
     assert resp.get_json()["error"] == "That arxiv ID doesn't seem to exist — check the link and try again."
 
 
+def test_add_reading_list_entry_when_arxiv_unreachable_returns_400(client, monkeypatch):
+    def _raise(url):
+        raise TimeoutError("read timed out")
+    monkeypatch.setattr(app_module, "_http_get", _raise)
+
+    resp = client.post("/api/reading-list", json={
+        "arxiv_link": "1706.03762",
+        "folder": "",
+        "reason": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Couldn't reach arxiv to verify that link — check your connection and try again."
+    assert client.get("/api/reading-list").get_json() == []
+
+
+def test_add_reading_list_entry_with_malformed_xml_response_returns_400(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: "not xml at all")
+
+    resp = client.post("/api/reading-list", json={
+        "arxiv_link": "1706.03762",
+        "folder": "",
+        "reason": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Couldn't reach arxiv to verify that link — check your connection and try again."
+    assert client.get("/api/reading-list").get_json() == []
+
+
 def test_patch_status_updates_reading_list_entry(client, monkeypatch):
     monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
     add_resp = client.post("/api/reading-list", json={"arxiv_link": "1706.03762", "folder": "", "reason": ""})

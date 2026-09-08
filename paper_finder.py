@@ -6,7 +6,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 PAPER_PROMPT = """\
 A researcher logged this thought or question they want to explore:
