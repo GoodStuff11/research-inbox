@@ -31,6 +31,73 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
+def test_api_add_does_not_auto_trigger_paper_finding(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app_module, "_llm_call", lambda prompt: calls.append(prompt))
+    monkeypatch.setattr(app_module, "GEMINI_KEY", "fake-key-for-test")
+
+    resp = client.post("/api/entries", json={"thought": "what is attention?"})
+    assert resp.status_code == 201
+    entry_id = resp.get_json()["id"]
+
+    import time
+    time.sleep(0.2)
+
+    assert calls == []
+    entry = client.get("/api/entries").get_json()[0]
+    assert entry["id"] == entry_id
+    assert entry["status"] == "new"
+
+
+def test_attach_paper_with_valid_link_sets_found_status(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: ATTENTION_FEED)
+    entry_id = app_module.add_entry("what is attention?")
+
+    resp = client.post(f"/api/entries/{entry_id}/attach-paper", json={
+        "arxiv_link": "https://arxiv.org/abs/1706.03762",
+        "why": "came up in a talk",
+    })
+
+    assert resp.status_code == 200
+    entry = client.get("/api/entries").get_json()[0]
+    assert entry["status"] == "found"
+    assert entry["paper_title"] == "Attention Is All You Need"
+    assert entry["paper_arxiv_id"] == "1706.03762"
+    assert entry["paper_why"] == "came up in a talk"
+
+
+def test_attach_paper_with_unparseable_text_returns_400(client):
+    entry_id = app_module.add_entry("what is attention?")
+
+    resp = client.post(f"/api/entries/{entry_id}/attach-paper", json={
+        "arxiv_link": "not a link at all",
+        "why": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Couldn't find an arxiv ID in that link/text."
+    entry = client.get("/api/entries").get_json()[0]
+    assert entry["status"] == "new"
+
+
+def test_attach_paper_with_nonexistent_arxiv_id_returns_400(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_http_get", lambda url: EMPTY_FEED)
+    entry_id = app_module.add_entry("what is attention?")
+
+    resp = client.post(f"/api/entries/{entry_id}/attach-paper", json={
+        "arxiv_link": "9999.99999",
+        "why": "",
+    })
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "That arxiv ID doesn't seem to exist — check the link and try again."
+
+
+def test_attach_paper_to_unknown_entry_returns_404(client):
+    resp = client.post("/api/entries/9999/attach-paper", json={"arxiv_link": "1706.03762", "why": ""})
+    assert resp.status_code == 404
+
+
 def test_pages_render(client):
     assert client.get("/").status_code == 200
     assert client.get("/reading-list").status_code == 200

@@ -193,7 +193,7 @@ def _json_body():
 @app.route("/")
 def index():
     entries = get_entries()
-    return render_template("index.html", entries=entries, active_page="inbox")
+    return render_template("index.html", entries=entries, active_page="inbox", gemini_enabled=bool(GEMINI_KEY))
 
 @app.route("/reading-list")
 def reading_list_page():
@@ -210,9 +210,36 @@ def api_add():
     if not thought:
         return jsonify({"error": "thought required"}), 400
     entry_id = add_entry(thought)
-    if GEMINI_KEY:
-        find_paper_async(entry_id, thought)
     return jsonify({"id": entry_id}), 201
+
+@app.route("/api/entries/<int:entry_id>/attach-paper", methods=["POST"])
+def api_attach_paper(entry_id):
+    entry = get_entry(entry_id)
+    if not entry:
+        return jsonify({"error": "not found"}), 404
+
+    data = _json_body()
+    arxiv_link = (data.get("arxiv_link") or "").strip()
+    why = (data.get("why") or "").strip() or None
+
+    arxiv_id = extract_arxiv_id(arxiv_link)
+    if not arxiv_id:
+        return jsonify({"error": "Couldn't find an arxiv ID in that link/text."}), 400
+
+    try:
+        verified = fetch_arxiv_by_id(arxiv_id, _http_get)
+    except Exception as e:
+        log.error(f"Error reaching arxiv for id {arxiv_id}: {e}")
+        return jsonify({"error": "Couldn't reach arxiv to verify that link — check your connection and try again."}), 400
+    if not verified:
+        return jsonify({"error": "That arxiv ID doesn't seem to exist — check the link and try again."}), 400
+
+    update_paper(entry_id, {
+        "title": verified["title"], "authors": verified["authors"],
+        "arxiv_id": verified["arxiv_id"], "venue": verified["venue"],
+        "why": why,
+    })
+    return jsonify({"ok": True})
 
 @app.route("/api/entries/<int:entry_id>/refind", methods=["POST"])
 def api_refind(entry_id):
@@ -325,10 +352,8 @@ def run_bot():
         thought = message.text.strip()
         if not thought:
             return
-        entry_id = add_entry(thought)
-        if GEMINI_KEY:
-            find_paper_async(entry_id, thought)
-        _safe_reply(bot, message, "Logged. Finding a paper for you…")
+        add_entry(thought)
+        _safe_reply(bot, message, "Logged. Attach a paper from your inbox at http://localhost:{}/".format(PORT))
 
     log.info("Telegram bot starting (polling)…")
     while True:

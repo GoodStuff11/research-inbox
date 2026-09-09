@@ -197,6 +197,13 @@
   .chevron { transition: transform 0.15s; font-style: normal; }
   .collapsed .chevron { transform: rotate(-90deg); }
   .collapsed .entry-body { display: none; }
+  .attach-form { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .attach-form input {
+    font-family: inherit; font-size: 13px; padding: 5px 8px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text);
+  }
+  .attach-form input[data-field="link"] { flex: 1; min-width: 160px; }
+  .attach-form input[data-field="why"] { flex: 2; min-width: 200px; }
 </style>
 </head>
 <body>
@@ -226,6 +233,7 @@
 </div>
 
 <script>
+const GEMINI_ENABLED = {{ 'true' if gemini_enabled else 'false' }};
 let entries = [];
 let expandedIds = new Set();
 let addedIds = new Set();
@@ -242,7 +250,7 @@ async function loadEntries() {
 
 function scheduleNextPoll() {
   clearTimeout(pollTimer);
-  const hasLoading = entries.some(e => e.status === 'loading' || e.status === 'new');
+  const hasLoading = entries.some(e => e.status === 'loading');
   pollTimer = setTimeout(loadEntries, hasLoading ? 2000 : 10000);
 }
 
@@ -280,6 +288,28 @@ async function refind(id, e) {
   e.stopPropagation();
   await fetch('/api/entries/' + id + '/refind', {method: 'POST'});
   loadEntries();
+}
+
+async function attachPaper(id, e) {
+  e.stopPropagation();
+  const link = document.getElementById('attach-link-' + id);
+  const why = document.getElementById('attach-why-' + id);
+  const err = document.getElementById('attach-err-' + id);
+  const linkVal = link.value.trim();
+  if (!linkVal) { err.textContent = 'Paste an arxiv link first.'; return; }
+  err.textContent = '';
+  try {
+    const r = await fetch('/api/entries/' + id + '/attach-paper', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({arxiv_link: linkVal, why: why.value.trim()})
+    });
+    const data = await r.json();
+    if (!r.ok) { err.textContent = data.error || 'Failed to attach.'; return; }
+    await loadEntries();
+  } catch(ex) {
+    err.textContent = 'Failed to save. Is the server running?';
+  }
 }
 
 async function addToReadingList(id, e) {
@@ -322,9 +352,23 @@ function render() {
     const badgeClass = {new:'badge-new', loading:'badge-loading', found:'badge-found', error:'badge-error'}[entry.status] || 'badge-new';
     const badgeText = {new:'new', loading:'finding paper…', found:'paper ready', error:'error'}[entry.status] || entry.status;
 
+    const attachFormHTML = `
+      <div class="attach-form">
+        <input type="text" data-field="link" id="attach-link-${entry.id}" placeholder="arxiv link or id">
+        <input type="text" data-field="why" id="attach-why-${entry.id}" placeholder="why (optional)">
+        <button class="sm" onclick="attachPaper(${entry.id}, event)">Attach</button>
+      </div>
+      <span class="err-msg" id="attach-err-${entry.id}"></span>
+    `;
+
     let bodyHTML = '';
-    if (entry.status === 'loading' || entry.status === 'new') {
+    if (entry.status === 'loading') {
       bodyHTML = '<div class="entry-body"><span class="loading-text">Finding the best paper for this…</span></div>';
+    } else if (entry.status === 'new') {
+      bodyHTML = `<div class="entry-body">
+        ${attachFormHTML}
+        ${GEMINI_ENABLED ? `<div class="card-actions"><button class="sm" onclick="refind(${entry.id}, event)">✨ Find with Gemini</button></div>` : ''}
+      </div>`;
     } else if (entry.status === 'found' && entry.paper_title) {
       const url = entry.paper_arxiv_id
         ? `https://arxiv.org/abs/${entry.paper_arxiv_id}`
@@ -334,16 +378,18 @@ function render() {
         <div class="paper-authors">${esc(entry.paper_authors || '')}${entry.paper_venue ? ' · ' + esc(entry.paper_venue) : ''}</div>
         <div class="why-box"><div class="why-label">Why this paper</div>${esc(entry.paper_why || '')}</div>
         <div class="card-actions">
-          <button class="sm" onclick="refind(${entry.id}, event)">↺ Find another</button>
+          ${GEMINI_ENABLED ? `<button class="sm" onclick="refind(${entry.id}, event)">↺ Find another</button>` : ''}
           ${addedIds.has(entry.id)
             ? `<button class="sm" disabled>✓ Added</button>`
             : `<button class="sm" onclick="addToReadingList(${entry.id}, event)">+ Add to reading list</button>`}
         </div>
+        ${attachFormHTML}
       </div>`;
     } else if (entry.status === 'error') {
       bodyHTML = `<div class="entry-body">
         <span class="loading-text" style="color:var(--danger)">Couldn't find a paper. </span>
-        <button class="sm" onclick="refind(${entry.id}, event)">Retry</button>
+        ${GEMINI_ENABLED ? `<button class="sm" onclick="refind(${entry.id}, event)">Retry</button>` : ''}
+        ${attachFormHTML}
       </div>`;
     }
 
