@@ -121,6 +121,22 @@ def test_http_get_uses_a_generous_timeout_for_cold_arxiv_cache_misses(monkeypatc
     assert seen_timeouts == [30]
 
 
+def test_http_get_defaults_to_a_single_attempt(monkeypatch):
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        raise app_module.requests.exceptions.ConnectionError("boom")
+
+    monkeypatch.setattr(app_module.requests, "get", fake_get)
+    monkeypatch.setattr(app_module.time, "sleep", lambda s: None)
+
+    with pytest.raises(app_module.requests.exceptions.ConnectionError):
+        app_module._http_get("http://example.com")
+
+    assert len(calls) == 1
+
+
 def test_http_get_raises_after_max_attempts(monkeypatch):
     def fake_get(url, timeout):
         raise app_module.requests.exceptions.ConnectionError("boom")

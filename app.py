@@ -154,7 +154,7 @@ def _llm_call(prompt):
     response = client.models.generate_content(model="gemini-flash-latest", contents=prompt)
     return response.text
 
-def _http_get(url, max_attempts=2, backoff_seconds=1):
+def _http_get(url, max_attempts=1, backoff_seconds=1):
     last_exc = None
     for attempt in range(max_attempts):
         try:
