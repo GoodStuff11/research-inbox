@@ -164,6 +164,27 @@ def test_add_reading_list_entry_when_arxiv_unreachable_returns_400(client, monke
     assert client.get("/api/reading-list").get_json() == []
 
 
+def test_safe_reply_swallows_exceptions_from_bot_reply_to():
+    class FailingBot:
+        def reply_to(self, message, text):
+            raise RuntimeError("Telegram apihelper error")
+
+    app_module._safe_reply(FailingBot(), object(), "hello")
+
+
+def test_safe_reply_calls_bot_reply_to_with_message_and_text():
+    calls = []
+
+    class FakeBot:
+        def reply_to(self, message, text):
+            calls.append((message, text))
+
+    msg = object()
+    app_module._safe_reply(FakeBot(), msg, "hello")
+
+    assert calls == [(msg, "hello")]
+
+
 def test_add_reading_list_entry_with_malformed_xml_response_returns_400(client, monkeypatch):
     monkeypatch.setattr(app_module, "_http_get", lambda url: "not xml at all")
 

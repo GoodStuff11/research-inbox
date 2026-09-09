@@ -288,6 +288,12 @@ def api_reading_list_delete(entry_id):
     return jsonify({"ok": True})
 
 # ── Telegram bot ──────────────────────────────────────────────────────────────
+def _safe_reply(bot, message, text):
+    try:
+        bot.reply_to(message, text)
+    except Exception as e:
+        log.error(f"Telegram reply failed: {e}")
+
 def run_bot():
     if not TELEGRAM_TOKEN:
         log.warning("No TELEGRAM_TOKEN set — bot disabled")
@@ -304,7 +310,7 @@ def run_bot():
     def handle_start(message):
         if not allowed(message):
             return
-        bot.reply_to(message,
+        _safe_reply(bot, message,
             "Research Inbox bot.\n\n"
             "Just send me any thought, question, or idea you want to come back to — "
             "I'll save it and I'll find you a paper to read.\n\n"
@@ -314,15 +320,15 @@ def run_bot():
     @bot.message_handler(func=lambda m: True, content_types=["text"])
     def handle_thought(message):
         if not allowed(message):
-            bot.reply_to(message, "Not authorised.")
+            _safe_reply(bot, message, "Not authorised.")
             return
         thought = message.text.strip()
         if not thought:
             return
         entry_id = add_entry(thought)
-        bot.reply_to(message, "Logged. Finding a paper for you…")
         if GEMINI_KEY:
             find_paper_async(entry_id, thought)
+        _safe_reply(bot, message, "Logged. Finding a paper for you…")
 
     log.info("Telegram bot starting (polling)…")
     while True:
