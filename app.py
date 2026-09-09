@@ -151,7 +151,7 @@ def delete_reading_list_entry(entry_id):
 # ── Gemini + arxiv paper-finder ───────────────────────────────────────────────
 def _llm_call(prompt):
     client = genai.Client(api_key=GEMINI_KEY)
-    response = client.models.generate_content(model="gemini-flash-latest", contents=prompt)
+    response = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
     return response.text
 
 def _http_get(url, max_attempts=1, backoff_seconds=1):
