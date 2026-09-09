@@ -54,7 +54,7 @@
     line-height: 1.6;
     min-height: 100vh;
   }
-  .container { max-width: 720px; margin: 0 auto; padding: 2rem 1.25rem; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.25rem; }
   header { margin-bottom: 1.5rem; }
   header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
   header p { font-size: 14px; color: var(--text-2); margin-top: 4px; }
@@ -69,7 +69,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
   .capture label { font-size: 13px; color: var(--text-2); display: block; margin-bottom: 6px; }
   .capture input {
@@ -106,37 +106,57 @@
   button.sm { font-size: 13px; padding: 4px 10px; }
   button:disabled { opacity: 0.6; cursor: default; }
 
-  .section-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-3);
-    margin: 1.5rem 0 10px;
+  /* Layout: sidebar + main pane */
+  .layout { display: flex; gap: 28px; align-items: flex-start; }
+  .sidebar { width: 210px; flex-shrink: 0; }
+  .main-pane { flex: 1; min-width: 0; }
+  @media (max-width: 700px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; }
   }
-  .section-label:first-of-type { margin-top: 0; }
-  .folder-name {
-    font-size: 13px;
-    font-weight: 600;
+
+  .sidebar details { margin-bottom: 16px; }
+  .sidebar summary {
+    cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; user-select: none;
+  }
+  .sidebar-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 14px; padding: 5px 8px; border-radius: var(--radius); cursor: pointer;
     color: var(--text-2);
-    margin: 14px 0 8px;
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
   }
-  .folder-name .chevron { font-style: normal; transition: transform 0.15s; }
-  .folder-name .chevron.collapsed { transform: rotate(-90deg); }
-  .folder-count { color: var(--text-3); font-weight: 400; }
-  .entries { display: flex; flex-direction: column; gap: 10px; }
+  .sidebar-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-item:hover { background: var(--bg); }
+  .sidebar-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 500; }
+  .sidebar-item .count { color: var(--text-3); font-size: 12px; flex-shrink: 0; }
+  .sidebar-item.active .count { color: var(--accent); }
+
+  .list-heading { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; }
+  .entries { display: flex; flex-direction: column; gap: 8px; }
   .entry {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
   }
-  .entry-body { padding: 1rem 1.25rem; }
+  .row-header {
+    padding: 0.55rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .row-header:hover { background: var(--bg); }
+  .row-chevron { flex-shrink: 0; font-size: 13px; color: var(--text-3); transition: transform 0.15s; font-style: normal; }
+  .collapsed .row-chevron { transform: rotate(-90deg); }
+  .collapsed .entry-body { display: none; }
+  .row-title { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-folder-tag {
+    font-size: 11px; color: var(--text-3); background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1px 8px; flex-shrink: 0; white-space: nowrap;
+  }
+  .entry-body { border-top: 1px solid var(--border); padding: 1rem 1.25rem; }
   .paper-title {
     display: block;
     font-size: 15px;
@@ -179,7 +199,6 @@
   }
   .btn-icon:hover { color: var(--danger); background: var(--danger-bg); }
   .empty { text-align: center; padding: 1.5rem 0; color: var(--text-3); font-size: 14px; }
-  details summary { cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin: 1.5rem 0 10px; }
 </style>
 </head>
 <body>
@@ -190,52 +209,47 @@
     <p>Papers you've decided to actually read.</p>
   </header>
 
-  <div class="capture">
-    <label for="link-input">Arxiv link or id</label>
-    <input id="link-input" type="text" placeholder="e.g. https://arxiv.org/abs/1706.03762">
-    <label for="folder-input">Folder (optional)</label>
-    <input id="folder-input" type="text" list="folder-datalist" placeholder="e.g. ML Theory">
-    <datalist id="folder-datalist"></datalist>
-    <label for="reason-input">Why do you want to read this? (optional)</label>
-    <input id="reason-input" type="text" placeholder="e.g. came up in a talk on attention mechanisms">
-    <div class="capture-row">
-      <button class="primary" onclick="addPaper()">Add</button>
-      <span class="err-msg" id="add-err"></span>
-    </div>
+  <div class="layout">
+    <aside class="sidebar">
+      <details open>
+        <summary>To read</summary>
+        <div id="sidebar-to_read"></div>
+      </details>
+      <details open>
+        <summary>Read</summary>
+        <div id="sidebar-read"></div>
+      </details>
+      <details>
+        <summary>Not interested</summary>
+        <div id="sidebar-not_interested"></div>
+      </details>
+    </aside>
+
+    <main class="main-pane">
+      <div class="capture">
+        <label for="link-input">Arxiv link or id</label>
+        <input id="link-input" type="text" placeholder="e.g. https://arxiv.org/abs/1706.03762">
+        <label for="folder-input">Folder (optional)</label>
+        <input id="folder-input" type="text" list="folder-datalist" placeholder="e.g. ML Theory">
+        <datalist id="folder-datalist"></datalist>
+        <label for="reason-input">Why do you want to read this? (optional)</label>
+        <input id="reason-input" type="text" placeholder="e.g. came up in a talk on attention mechanisms">
+        <div class="capture-row">
+          <button class="primary" onclick="addPaper()">Add</button>
+          <span class="err-msg" id="add-err"></span>
+        </div>
+      </div>
+
+      <div class="list-heading" id="list-heading"></div>
+      <div class="entries" id="paper-list"></div>
+    </main>
   </div>
-
-  <div class="section-label">To read</div>
-  <div class="entries" id="to-read-list"></div>
-
-  <div class="section-label">Read</div>
-  <div class="entries" id="read-list"></div>
-
-  <details>
-    <summary>Not interested</summary>
-    <div class="entries" id="not-interested-list"></div>
-  </details>
 </div>
 
 <script>
 let items = [];
-
-let collapsedFolders = new Set();
-try {
-  collapsedFolders = new Set(JSON.parse(localStorage.getItem('readingListCollapsedFolders') || '[]'));
-} catch (e) {}
-
-function saveCollapsedFolders() {
-  try {
-    localStorage.setItem('readingListCollapsedFolders', JSON.stringify([...collapsedFolders]));
-  } catch (e) {}
-}
-
-function toggleFolder(key) {
-  if (collapsedFolders.has(key)) collapsedFolders.delete(key);
-  else collapsedFolders.add(key);
-  saveCollapsedFolders();
-  render();
-}
+let expandedIds = new Set();
+let activeFilter = {status: 'to_read', folder: null};
 
 async function loadList() {
   try {
@@ -307,73 +321,114 @@ function folderOptions() {
   return folders.map(f => `<option value="${esc(f)}">`).join('');
 }
 
-function folderSection(key, label, folderItems) {
-  const collapsed = collapsedFolders.has(key);
-  const heading = folderHeading(key, label, folderItems.length, collapsed);
-  const body = collapsed ? '' : folderItems.map(i => paperCard(i, true)).join('');
-  return heading + body;
+function toggleExpand(id) {
+  if (expandedIds.has(id)) expandedIds.delete(id);
+  else expandedIds.add(id);
+  render();
 }
 
-function folderHeading(key, label, count, collapsed) {
-  return `<div class="folder-name" data-folder-key="${esc(key)}" onclick="toggleFolder(this.dataset.folderKey)">
-    <span class="chevron${collapsed ? ' collapsed' : ''}">▾</span> ${esc(label)} <span class="folder-count">(${count})</span>
+function setFilterFromDataset(el) {
+  const status = el.dataset.status;
+  const folder = el.dataset.isAll === '1' ? null : el.dataset.folder;
+  activeFilter = {status, folder};
+  render();
+}
+
+function sidebarItem(status, folderKey, label, count) {
+  const isAll = folderKey === null;
+  const isActive = activeFilter.status === status && activeFilter.folder === folderKey;
+  return `<div class="sidebar-item${isActive ? ' active' : ''}"
+      data-status="${status}" data-folder="${esc(folderKey || '')}" data-is-all="${isAll ? '1' : '0'}"
+      onclick="setFilterFromDataset(this)">
+    <span>${esc(label)}</span><span class="count">${count}</span>
   </div>`;
 }
 
-function paperCard(item, showStatusButtons) {
+function folderGroupedSidebarHTML(status, statusItems) {
+  const groups = Object.create(null);
+  statusItems.forEach(i => {
+    const key = i.folder || '';
+    (groups[key] = groups[key] || []).push(i);
+  });
+  const folderNames = Object.keys(groups).filter(k => k !== '').sort();
+
+  let html = sidebarItem(status, null, 'All', statusItems.length);
+  if (groups['']) html += sidebarItem(status, '', 'Uncategorized', groups[''].length);
+  folderNames.forEach(f => { html += sidebarItem(status, f, f, groups[f].length); });
+  return html;
+}
+
+function renderSidebar() {
+  const toRead = items.filter(i => i.status === 'to_read');
+  const read = items.filter(i => i.status === 'read');
+  const notInterested = items.filter(i => i.status === 'not_interested');
+
+  document.getElementById('sidebar-to_read').innerHTML = folderGroupedSidebarHTML('to_read', toRead);
+  document.getElementById('sidebar-read').innerHTML = folderGroupedSidebarHTML('read', read);
+  document.getElementById('sidebar-not_interested').innerHTML = sidebarItem('not_interested', null, 'All', notInterested.length);
+}
+
+function currentFilterLabel() {
+  const statusLabel = {to_read: 'To read', read: 'Read', not_interested: 'Not interested'}[activeFilter.status];
+  if (activeFilter.folder === null) return statusLabel;
+  if (activeFilter.folder === '') return `${statusLabel} — Uncategorized`;
+  return `${statusLabel} — ${activeFilter.folder}`;
+}
+
+function matchesFilter(item) {
+  if (item.status !== activeFilter.status) return false;
+  if (activeFilter.folder === null) return true;
+  return (item.folder || '') === activeFilter.folder;
+}
+
+function paperRow(item) {
+  const expanded = expandedIds.has(item.id);
   const url = `https://arxiv.org/abs/${item.arxiv_id}`;
-  return `
-    <div class="entry">
-      <div class="entry-body">
-        <a class="paper-title" href="${url}" target="_blank" rel="noopener">${esc(item.title)}</a>
-        <div class="paper-authors">${esc(item.authors || '')}${item.venue ? ' · ' + esc(item.venue) : ''}</div>
-        ${item.reason ? `<div class="why-box"><div class="why-label">Why</div>${esc(item.reason)}</div>` : ''}
-        <label class="thoughts-label" for="folder-${item.id}">Folder</label>
-        <input class="thoughts-box" id="folder-${item.id}" type="text" list="folder-datalist"
-          value="${esc(item.folder || '')}" placeholder="Uncategorized"
-          onblur="saveFolder(${item.id}, this.value)">
-        <label class="thoughts-label" for="thoughts-${item.id}">Thoughts</label>
-        <textarea class="thoughts-box" id="thoughts-${item.id}" rows="2"
-          onblur="saveThoughts(${item.id}, this.value)">${esc(item.thoughts || '')}</textarea>
-        <div class="card-actions">
-          ${showStatusButtons ? `
-            <button class="sm" onclick="setStatus(${item.id}, 'read', event)">Finished reading</button>
-            <button class="sm" onclick="setStatus(${item.id}, 'not_interested', event)">Not interested</button>
-          ` : ''}
-          <button class="btn-icon" onclick="removeItem(${item.id}, event)" title="Remove" aria-label="Remove">✕</button>
-        </div>
+  const showStatusButtons = item.status === 'to_read';
+
+  const detailHTML = `
+    <div class="entry-body">
+      <a class="paper-title" href="${url}" target="_blank" rel="noopener">${esc(item.title)}</a>
+      <div class="paper-authors">${esc(item.authors || '')}${item.venue ? ' · ' + esc(item.venue) : ''}</div>
+      ${item.reason ? `<div class="why-box"><div class="why-label">Why</div>${esc(item.reason)}</div>` : ''}
+      <label class="thoughts-label" for="folder-${item.id}">Folder</label>
+      <input class="thoughts-box" id="folder-${item.id}" type="text" list="folder-datalist"
+        value="${esc(item.folder || '')}" placeholder="Uncategorized"
+        onblur="saveFolder(${item.id}, this.value)" onclick="event.stopPropagation()">
+      <label class="thoughts-label" for="thoughts-${item.id}">Thoughts</label>
+      <textarea class="thoughts-box" id="thoughts-${item.id}" rows="2"
+        onblur="saveThoughts(${item.id}, this.value)" onclick="event.stopPropagation()">${esc(item.thoughts || '')}</textarea>
+      <div class="card-actions">
+        ${showStatusButtons ? `
+          <button class="sm" onclick="setStatus(${item.id}, 'read', event)">Finished reading</button>
+          <button class="sm" onclick="setStatus(${item.id}, 'not_interested', event)">Not interested</button>
+        ` : ''}
+        <button class="btn-icon" onclick="removeItem(${item.id}, event)" title="Remove" aria-label="Remove">✕</button>
       </div>
+    </div>
+  `;
+
+  return `
+    <div class="entry${expanded ? '' : ' collapsed'}">
+      <div class="row-header" onclick="toggleExpand(${item.id})">
+        <span class="row-chevron">▾</span>
+        <span class="row-title">${esc(item.title)}</span>
+        <span class="row-folder-tag">${esc(item.folder || 'Uncategorized')}</span>
+      </div>
+      ${expanded ? detailHTML : ''}
     </div>
   `;
 }
 
 function render() {
   document.getElementById('folder-datalist').innerHTML = folderOptions();
+  renderSidebar();
 
-  const toRead = items.filter(i => i.status === 'to_read');
-  const read = items.filter(i => i.status === 'read');
-  const notInterested = items.filter(i => i.status === 'not_interested');
+  document.getElementById('list-heading').textContent = currentFilterLabel();
 
-  const groups = Object.create(null);
-  toRead.forEach(i => {
-    const key = i.folder || '';
-    (groups[key] = groups[key] || []).push(i);
-  });
-  const folderNames = Object.keys(groups).filter(k => k !== '').sort();
-
-  let toReadHTML = '';
-  if (groups['']) {
-    toReadHTML += folderSection('', 'Uncategorized', groups['']);
-  }
-  folderNames.forEach(f => {
-    toReadHTML += folderSection(f, f, groups[f]);
-  });
-  document.getElementById('to-read-list').innerHTML = toReadHTML || '<div class="empty">Nothing queued yet.</div>';
-
-  document.getElementById('read-list').innerHTML =
-    read.map(i => paperCard(i, false)).join('') || '<div class="empty">No finished papers yet.</div>';
-  document.getElementById('not-interested-list').innerHTML =
-    notInterested.map(i => paperCard(i, false)).join('') || '<div class="empty">Nothing here.</div>';
+  const matching = items.filter(matchesFilter);
+  document.getElementById('paper-list').innerHTML =
+    matching.map(paperRow).join('') || '<div class="empty">Nothing here.</div>';
 }
 
 function esc(s) {
